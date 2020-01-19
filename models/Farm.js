@@ -90,7 +90,7 @@ const FarmSchema = new mongoose.Schema({
       default: 0
     }
   },
-  coins: {
+  dingles: {
     type: Number,
     required: true,
     default: 0

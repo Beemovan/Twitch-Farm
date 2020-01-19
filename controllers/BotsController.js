@@ -69,8 +69,12 @@ class BotsController {
     console.log(`* Connected to ${addr}:${port}`);
   }
 
-  respondToClient(target, response) {
-    this.say(target, response);
+  respondToClient(target, response, isWhisper = false) {
+    if (isWhisper) {
+      this.whisper(target, response);
+    } else {
+      this.say(target, response);
+    }
   }
 }
 

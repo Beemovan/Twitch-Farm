@@ -13,7 +13,7 @@ const start = async () => {
 start();
 
 // createFarm({
-//   username: "botAccnt",
-//   oauthPw: "oauthPW",
-//   channel: "chan"
+//   username: "",
+//   oauthPw: "",
+//   channel: ""
 // });
