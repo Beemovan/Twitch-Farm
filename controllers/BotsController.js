@@ -55,12 +55,12 @@ class BotsController {
   onMessageHandler(target, context, msg, self) {
     const command = {
       target,
-      cmdString: msg.trim(),
+      args: msg.trim().split(" "),
       username: context.username
     };
 
-    if (command.cmdString.charAt(0) === "!" && command.cmdString.length > 1) {
-      this.tFController.processCommand(command);
+    if (command.args[0].charAt(0) === "!" && command.args[0].length > 1) {
+      this.tFController.runCommand(command);
     }
   }
 

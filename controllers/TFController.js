@@ -1,4 +1,6 @@
 const Farm = require("../models/Farm");
+const Animal = require("../models/Animal");
+
 const animalTypes = ["Pig", "Sheep", "Chicken", "Cow", "Goat"];
 const animalInfoMap = {
   pig: {
@@ -21,6 +23,13 @@ const animalInfoMap = {
     noise: "bleh",
     product: "poems"
   }
+};
+animalLevelMap = {
+  0: "adolescent",
+  1: "adult",
+  2: "wisened",
+  3: "ancient",
+  4: "eternal"
 };
 
 class TFController {
@@ -60,18 +69,45 @@ class TFController {
   }
 
   async loadFarm(farmId) {
-    this.farm = await Farm.findById(farmId).populate();
+    this.farm = await Farm.findById(farmId).populate("farmer animals");
   }
 
-  processCommand(command) {
-    const { target, cmdString, username } = command;
+  runCommand(command) {
+    const { target, args, username } = command;
 
-    switch (cmdString) {
+    switch (args[0]) {
       case "!help":
-        this.processHelp(target, username);
+        this.processHelp(username);
+        break;
+      case "!namefarm":
+        this.processNameFarm(args.slice(1).join(" "), target, username);
         break;
       case "!makerounds":
         this.processMakerounds(target, username);
+        break;
+      case "!inventory":
+        this.processInventory(target, username);
+        break;
+      case "!livestock":
+        this.processLivestock(target, username);
+        break;
+      case "!evolve":
+        this.processEvolve(target, username);
+        break;
+      case "!birthpig":
+        this.processNewAnimal("pig", target, username);
+        break;
+      case "!birthsheep":
+        this.processNewAnimal("sheep", target, username);
+        break;
+      case "!birthchicken":
+        this.processNewAnimal("chicken", target, username);
+        break;
+      case "!birthcow":
+        this.processNewAnimal("cow", target, username);
+        break;
+      case "!birthgoat":
+        this.processNewAnimal("goat", target, username);
         break;
       case "!oink":
         this.processAnimalNoise("pig", username);
@@ -89,12 +125,135 @@ class TFController {
         this.processAnimalNoise("goat", username);
         break;
       default:
-        console.log(`Command unrecognized: ${cmdString}`);
+        console.log(`Command unrecognized: ${args[0]}`);
     }
   }
 
-  processHelp(target, username) {
-    this.respond(target, `You don't need help yet, ${username}`);
+  processHelp(username) {
+    if (username === this.farm.farmer.username) {
+      this.respond(
+        username,
+        `Howdy, ${this.farm.farmer.title} ${username}! In order to interact with your Twitch Farm, you can use the following commands: '!namefarm [name]' will rename your farm. '!makerounds' will work the farm for an hour; if your animals are awake they'll produce resources during this time. '!inventory' will display what y'all got to work with. !livestock will display how many of each animal you own.`
+      );
+    }
+  }
+
+  processInventory(target, username) {
+    if (username === this.farm.farmer.username) {
+      this.respond(
+        target,
+        `${this.farm.name} has: ${this.farm.dingles} dingles, ${this.farm.resources.bacon} pounds of bacon, ${this.farm.resources.wool} bolts of wool, ${this.farm.resources.eggs} cartons of eggs, ${this.farm.resources.milk} gallons of milk, ${this.farm.resources.poems} poems, ${this.farm.materials.wood} bundles of wood, ${this.farm.materials.brick} bricks, ${this.farm.materials.iron} ingots of iron`
+      );
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can check inventory.",
+        true
+      );
+    }
+  }
+
+  processLivestock(target, username) {
+    if (username === this.farm.farmer.username) {
+      const animalCounts = {
+        pig: 0,
+        sheep: 0,
+        chicken: 0,
+        cow: 0,
+        goat: 0
+      };
+      this.farm.animals.forEach(animal => animalCounts[animal.type]++);
+      this.respond(
+        target,
+        `${this.farm.name} has: ${animalCounts.pig} pig(s), ${animalCounts.sheep} sheep(s), ${animalCounts.chicken} chicken(s), ${animalCounts.cow} cow(s), ${animalCounts.goat} goat(s)`
+      );
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can check on the livestock.",
+        true
+      );
+    }
+  }
+
+  async processNameFarm(newName, target, username) {
+    if (username === this.farm.farmer.username) {
+      if (newName.length > 0) {
+        this.respond(
+          target,
+          `Per ${this.farm.farmer.title} ${username}'s request, ${this.farm.name} will now be called ${newName}`
+        );
+        this.farm.name = newName;
+        await this.farm.save();
+      } else {
+        this.respond(username, `Invalid farm name: ${newName}`, true);
+      }
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can change the farm's name.",
+        true
+      );
+    }
+  }
+
+  async processNewAnimal(type, target, username) {
+    if (username !== this.farm.farmer.username) {
+      let animal = this.farm.animals.find(
+        animal => animal.username === username
+      );
+      if (!!animal) {
+        this.respond(
+          username,
+          `You are a ${animal.type}. You can't just all of a sudden become an adolescent ${type}.`,
+          true
+        );
+      } else {
+        animal = new Animal({ username, type });
+        await animal.save();
+        this.farm.animals.push(animal);
+        await this.farm.save();
+        this.respond(
+          target,
+          `Woa, there! An adolescent ${type} is born. Name on the tag says ${username}. Welcome to ${this.farm.name}, little one.`
+        );
+      }
+    } else {
+      this.respond(
+        username,
+        "Sorry, the farmer can't become an animal. That would be crazy.",
+        true
+      );
+    }
+  }
+
+  async processEvolve(target, username) {
+    if (username !== this.farm.farmer.username) {
+      let animal = this.farm.animals.find(
+        animal => animal.username === username
+      );
+      if (!!animal && animal.level < 4 && animal.exp > 20) {
+        animal.exp = 0;
+        animal.level += 1;
+        await animal.save();
+        this.respond(
+          target,
+          `${username} has evolved from a(n) ${
+            animalLevelMap[animal.level - 1]
+          } ${animal.type} into a(n) ${animalLevelMap[animal.level]} ${
+            animal.type
+          }. Yeeeeeeehaaawwww!!!`
+        );
+      } else {
+        this.respond(
+          username,
+          "Sorry, you're not quite ready to evolve.",
+          true
+        );
+      }
+    } else {
+      this.respond(username, "Sorry, only animals can evolve.", true);
+    }
   }
 
   processMakerounds(target, username) {
@@ -160,7 +319,7 @@ class TFController {
     await this.farm.save();
   }
 
-  processAnimalNoise(type, username) {
+  async processAnimalNoise(type, username) {
     if (!this.productionMap[type].animalsProduced.includes(username)) {
       const curAnimal = this.farm.animals.find(
         animal => animal.type === type && animal.username === username
@@ -168,6 +327,17 @@ class TFController {
       if (!!curAnimal) {
         this.productionMap[type].animalsProduced.push(username);
         this.productionMap[type].units += this.calcUnitsProduced(curAnimal);
+        animal.exp += 1;
+        if (animal.exp > 20 && animal.level < 4) {
+          setTimeout(() => {
+            this.respond(
+              username,
+              `Hmm, it looks like you've grown. Type !evolve to level up.`,
+              true
+            );
+          }, 1000 * 10);
+        }
+        await animal.save();
       } else {
         this.respond(
           username,

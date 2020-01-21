@@ -11,6 +11,11 @@ const FarmerSchema = new mongoose.Schema({
     required: true,
     default: "Farmer"
   },
+  exp: {
+    type: Number,
+    required: true,
+    default: 0
+  },
   accessories: {
     tractor: {
       type: Number,

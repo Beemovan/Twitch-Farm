@@ -15,6 +15,11 @@ const AnimalSchema = new mongoose.Schema({
     required: true,
     default: 0
   },
+  exp: {
+    type: Number,
+    required: true,
+    default: 0
+  },
   lastActive: {
     type: Date,
     required: true,
