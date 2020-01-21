@@ -31,6 +31,27 @@ animalLevelMap = {
   3: "ancient",
   4: "eternal"
 };
+accomodationRecipeMap = {
+  pig: {
+    wood: 25,
+    iron: 15
+  },
+  sheep: {
+    wood: 35,
+    brick: 5
+  },
+  chicken: {
+    iron: 40
+  },
+  cow: {
+    brick: 30,
+    iron: 10
+  },
+  goat: {
+    brick: 35,
+    wood: 5
+  }
+};
 
 class TFController {
   constructor(farmId, respond) {
@@ -66,12 +87,17 @@ class TFController {
         units: 0
       }
     };
+    this.market = null;
+    this.spinMarket();
+    setInterval(this.spinMarket.bind(this), 1000 * 60 * 90);
   }
 
   async loadFarm(farmId) {
     this.farm = await Farm.findById(farmId).populate("farmer animals");
   }
 
+  //TODO Split up help command into different categories, and explain the game for each,
+  // e.g. !help accomodation -> Accomodations improve your animals quality of life. Build mo...
   runCommand(command) {
     const { target, args, username } = command;
 
@@ -90,6 +116,18 @@ class TFController {
         break;
       case "!livestock":
         this.processLivestock(target, username);
+        break;
+      case "!market":
+        this.processMarket(target, username);
+        break;
+      case "!buy":
+        this.processBuy(args.slice(1, 3), target, username);
+        break;
+      case "!sell":
+        this.processSell(args.slice(1, 3), target, username);
+        break;
+      case "!build":
+        this.processBuild(args[1], target, username);
         break;
       case "!evolve":
         this.processEvolve(target, username);
@@ -176,6 +214,92 @@ class TFController {
     }
   }
 
+  processMarket(target, username) {
+    if (username === this.farm.farmer.username) {
+      let marketPrices = [];
+      Object.keys(this.market).forEach(key =>
+        marketPrices.push(`${key} (${this.market[key]} dingles)`)
+      );
+      this.respond(target, "Current market prices: " + marketPrices.join(", "));
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can check on the market.",
+        true
+      );
+    }
+  }
+
+  async processBuy(args, target, username) {
+    if (username === this.farm.farmer.username) {
+      let [quantity, material] = args;
+      quantity = parseInt(quantity);
+      let cost = quantity * this.market[material];
+      if (quantity < 0) {
+        this.respond(target, `Invalid quantity: ${quantity}`);
+      } else if (!this.farm.materials.hasOwnProperty(material)) {
+        this.respond(target, `Invalid material: ${material}`);
+      } else if (this.farm.dingles < cost) {
+        this.respond(
+          target,
+          `Stop right there! That'll cost ${cost} dingles, and you've only got ${this.farm.dingles}.`
+        );
+      } else {
+        this.farm.dingles -= cost;
+        this.farm.materials[material] += quantity;
+        await this.farm.save();
+        this.respond(
+          target,
+          `Nice doing business, ${this.farm.farmer.title} ${username}. You got ${this.farm.dingles} dingles left.`
+        );
+      }
+    } else {
+      this.respond(username, "Sorry, only the farmer can buy stuff.", true);
+    }
+  }
+
+  async processSell(args, target, username) {
+    if (username === this.farm.farmer.username) {
+      let [quantity, resource] = args;
+      quantity = parseInt(quantity);
+      let cost = quantity * this.market[resource];
+      if (quantity < 0) {
+        this.respond(target, `Invalid quantity: ${quantity}`);
+      } else if (!this.farm.resources.hasOwnProperty(resource)) {
+        this.respond(target, `Invalid resource: ${resource}`);
+      } else if (quantity > this.farm.resources[resource]) {
+        this.respond(
+          target,
+          `Stop right there! You've only got ${this.farm.resources[resource]} for sellin'.`
+        );
+      } else {
+        this.farm.dingles += cost;
+        this.farm.resources[resource] -= quantity;
+        await this.farm.save();
+        this.respond(
+          target,
+          `It's a deal, ${this.farm.farmer.title} ${username}. You sold ${quantity} units of ${resource} for ${cost} dingles.`
+        );
+      }
+    } else {
+      this.respond(username, "Sorry, only the farmer can sell stuff.", true);
+    }
+  }
+
+  //TODO name accomodations something fun
+  async processBuild(type, target, username) {
+    if (username === this.farm.farmer.username) {
+      let hasEnoughMaterials = true;
+      let curLevel = this.farm.accomodations[type];
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can build accomodations around the farm.",
+        true
+      );
+    }
+  }
+
   async processNameFarm(newName, target, username) {
     if (username === this.farm.farmer.username) {
       if (newName.length > 0) {
@@ -242,7 +366,7 @@ class TFController {
             animalLevelMap[animal.level - 1]
           } ${animal.type} into a(n) ${animalLevelMap[animal.level]} ${
             animal.type
-          }. Yeeeeeeehaaawwww!!!`
+          }. Yeehaw!`
         );
       } else {
         this.respond(
@@ -356,6 +480,19 @@ class TFController {
 
   calcUnitsProduced(animal) {
     return 1 + this.farm.accomodations[animal.type] + animal.level;
+  }
+
+  spinMarket() {
+    this.market = {
+      bacon: Math.floor(Math.random() * 3) + 2,
+      wool: Math.floor(Math.random() * 3) + 2,
+      eggs: Math.floor(Math.random() * 3) + 2,
+      milk: Math.floor(Math.random() * 3) + 2,
+      poems: Math.floor(Math.random() * 3) + 2,
+      wood: Math.floor(Math.random() * 4) + 5,
+      brick: Math.floor(Math.random() * 4) + 5,
+      iron: Math.floor(Math.random() * 4) + 5
+    };
   }
 }
 
