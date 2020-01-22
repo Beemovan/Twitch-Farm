@@ -1,7 +1,7 @@
 const Farm = require("../models/Farm");
 const Animal = require("../models/Animal");
 
-const animalTypes = ["Pig", "Sheep", "Chicken", "Cow", "Goat"];
+const animalTypes = ["pig", "sheep", "chicken", "cow", "goat"];
 const animalInfoMap = {
   pig: {
     noise: "oink",
@@ -129,23 +129,14 @@ class TFController {
       case "!build":
         this.processBuild(args[1], target, username);
         break;
+      case "!buildings":
+        this.processBuildings(target, username);
+        break;
       case "!evolve":
         this.processEvolve(target, username);
         break;
-      case "!birthpig":
-        this.processNewAnimal("pig", target, username);
-        break;
-      case "!birthsheep":
-        this.processNewAnimal("sheep", target, username);
-        break;
-      case "!birthchicken":
-        this.processNewAnimal("chicken", target, username);
-        break;
-      case "!birthcow":
-        this.processNewAnimal("cow", target, username);
-        break;
-      case "!birthgoat":
-        this.processNewAnimal("goat", target, username);
+      case "!birth":
+        this.processNewAnimal(args[1], target, username);
         break;
       case "!oink":
         this.processAnimalNoise("pig", username);
@@ -286,15 +277,69 @@ class TFController {
     }
   }
 
-  //TODO name accomodations something fun
   async processBuild(type, target, username) {
     if (username === this.farm.farmer.username) {
-      let hasEnoughMaterials = true;
-      let curLevel = this.farm.accomodations[type];
+      let recipe = accomodationRecipeMap[type];
+      let nextLevel = this.farm.accomodations[type] + 1;
+      let hasEnoughMaterials = Object.keys(recipe).reduce(
+        (prev, cur) =>
+          prev && recipe[cur] * nextLevel <= this.farm.materials[cur],
+        true
+      );
+
+      if (!hasEnoughMaterials) {
+        this.respond(target, `You ain't got enough materials.`);
+      } else if (nextLevel > 4) {
+        this.respond(target, `Your ${type} accomodations are maxed out!`);
+      } else if (!animalTypes.includes(type)) {
+        this.respond(target, `Invalid accomodation type: ${type}`);
+      } else {
+        this.farm.accomodations[type] = nextLevel;
+        Object.keys(recipe).forEach(
+          key => (this.farm.materials[key] -= recipe[key] * nextLevel)
+        );
+        await this.farm.save();
+        this.respond(
+          target,
+          `Wait 'til the ${type}s see this, ${this.farm.farmer.title} ${username}! Thier accomodations have been upgraded to level ${nextLevel}.`
+        );
+      }
     } else {
       this.respond(
         username,
         "Sorry, only the farmer can build accomodations around the farm.",
+        true
+      );
+    }
+  }
+
+  processBuildings(target, username) {
+    if (username === this.farm.farmer.username) {
+      let accomodations = [];
+      Object.keys(this.farm.accomodations).forEach(key => {
+        let recipe = accomodationRecipeMap[key];
+        let nextLevel = this.farm.accomodations[key] + 1;
+        let upgradeCosts =
+          nextLevel > 4
+            ? "(MAX LVL)"
+            : "(Upgrade for " +
+              Object.keys(recipe)
+                .map(material => `${nextLevel * recipe[material]} ${material}`)
+                .join(", ") +
+              ")";
+
+        accomodations.push(
+          `${key} - level ${this.farm.accomodations[key]} ${upgradeCosts}`
+        );
+      });
+      this.respond(
+        target,
+        "Current accomodations: " + accomodations.join(", ")
+      );
+    } else {
+      this.respond(
+        username,
+        `Sorry, only the farmer can check on the buildings at ${this.farm.name}`,
         true
       );
     }
@@ -329,9 +374,11 @@ class TFController {
       if (!!animal) {
         this.respond(
           username,
-          `You are a ${animal.type}. You can't just all of a sudden become an adolescent ${type}.`,
+          `You are already a ${animal.type}. You can't be born again.`,
           true
         );
+      } else if (!animalTypes.includes(type)) {
+        this.respond(username, `Invalid animal: ${type}`, true);
       } else {
         animal = new Animal({ username, type });
         await animal.save();
