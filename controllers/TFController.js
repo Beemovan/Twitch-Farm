@@ -2,6 +2,32 @@ const Farm = require("../models/Farm");
 const Animal = require("../models/Animal");
 
 const animalTypes = ["pig", "sheep", "chicken", "cow", "goat"];
+const farmerTitles = [
+  "Farmer",
+  "Mister Farmer",
+  "Farmer Captain",
+  "Mega Farmer Boss",
+  "Omniscient Farm Commander",
+  "Undying Farm Deity"
+];
+const tractorLevelMap = {
+  0: "No Tractor",
+  1: "Rusty Tractor",
+  2: "Shiny Red Tractor",
+  3: "Tesla Cyber Tractor"
+};
+const overallLevelMap = {
+  0: "No Overalls",
+  1: "Patchy Overalls",
+  2: "Fine Denim Overalls",
+  3: "Silken Balenciaga Overalls"
+};
+const dogLevelMap = {
+  0: "No Dog",
+  1: "Scrappy Mutt",
+  2: "Loyal Guard Dog",
+  3: "Hank The Cowdog"
+};
 const animalInfoMap = {
   pig: {
     noise: "oink",
@@ -96,6 +122,7 @@ class TFController {
     this.farm = await Farm.findById(farmId).populate("farmer animals");
   }
 
+  //TODO write command for starting a farm and make it cute
   //TODO Split up help command into different categories, and explain the game for each,
   // e.g. !help accomodation -> Accomodations improve your animals quality of life. Build mo...
   runCommand(command) {
@@ -119,6 +146,9 @@ class TFController {
         break;
       case "!market":
         this.processMarket(target, username);
+        break;
+      case "!blackmarket":
+        this.processBlackMarket(target, username);
         break;
       case "!buy":
         this.processBuy(args.slice(1, 3), target, username);
@@ -221,28 +251,138 @@ class TFController {
     }
   }
 
+  processBlackMarket(target, username) {
+    if (username === this.farm.farmer.username) {
+      const { accessories } = this.farm.farmer;
+      let marketPrices = [];
+      let nextTitleInd = farmerTitles.indexOf(this.farm.farmer.title) + 1;
+      if (nextTitleInd < farmerTitles.length) {
+        marketPrices.push(
+          `New Title: ${nextTitleInd * 14} dingles (Currently: ${
+            this.farm.farmer.title
+          }))`
+        );
+      }
+      if (accessories.tractor < 3) {
+        marketPrices.push(
+          `New Tractor: ${(accessories.tractor + 1) * 18} dingles (Currently: ${
+            tractorLevelMap[accessories.tractor]
+          }))`
+        );
+      }
+      if (accessories.overalls < 3) {
+        marketPrices.push(
+          `New Overalls: ${(accessories.overalls + 1) *
+            12} dingles (Currently: ${overallLevelMap[accessories.overalls]}))`
+        );
+      }
+      if (accessories.dog < 3) {
+        marketPrices.push(
+          `New Dog: ${(accessories.dog + 1) * 16} dingles (Currently: ${
+            dogLevelMap[accessories.dog]
+          }))`
+        );
+      }
+      this.respond(
+        target,
+        "You a cop? Here's what I got: " + marketPrices.join(", ")
+      );
+    } else {
+      this.respond(
+        username,
+        "Sorry, only the farmer can check on the black market.",
+        true
+      );
+    }
+  }
+
   async processBuy(args, target, username) {
     if (username === this.farm.farmer.username) {
       let [quantity, material] = args;
-      quantity = parseInt(quantity);
-      let cost = quantity * this.market[material];
-      if (quantity < 0) {
-        this.respond(target, `Invalid quantity: ${quantity}`);
-      } else if (!this.farm.materials.hasOwnProperty(material)) {
-        this.respond(target, `Invalid material: ${material}`);
-      } else if (this.farm.dingles < cost) {
-        this.respond(
-          target,
-          `Stop right there! That'll cost ${cost} dingles, and you've only got ${this.farm.dingles}.`
-        );
+      if (quantity === "title") {
+        let nextTitleInd = farmerTitles.indexOf(this.farm.farmer.title) + 1;
+        if (
+          nextTitleInd < farmerTitles.length &&
+          this.farm.dingles >= nextTitleInd * 14
+        ) {
+          this.farm.dingles -= nextTitleInd * 14;
+          this.farm.farmer.title = farmerTitles[nextTitleInd];
+          await this.farm.farmer.save();
+          await this.farm.save();
+          return this.respond(
+            target,
+            `Success! You'll now be known as ${this.farm.farmer.title} ${username}.`
+          );
+        }
+      } else if (quantity === "tractor") {
+        if (
+          this.farm.farmer.accessories.tractor < 3 &&
+          this.farm.dingles >= (this.farm.farmer.accessories.tractor + 1) * 18
+        ) {
+          this.farm.dingles -= (this.farm.farmer.accessories.tractor + 1) * 18;
+          this.farm.farmer.accessories.tractor += 1;
+          await this.farm.farmer.save();
+          await this.farm.save();
+          this.respond(
+            target,
+            `Success! You now own: ${
+              tractorLevelMap[this.farm.farmer.accessories.tractor]
+            }.`
+          );
+        }
+      } else if (quantity === "dog") {
+        if (
+          this.farm.farmer.accessories.dog < 3 &&
+          this.farm.dingles >= (this.farm.farmer.accessories.dog + 1) * 16
+        ) {
+          this.farm.dingles -= (this.farm.farmer.accessories.dog + 1) * 16;
+          this.farm.farmer.accessories.dog += 1;
+          await this.farm.farmer.save();
+          await this.farm.save();
+          this.respond(
+            target,
+            `Success! You now own: ${
+              dogLevelMap[this.farm.farmer.accessories.dog]
+            }.`
+          );
+        }
+      } else if (quantity === "overalls") {
+        if (
+          this.farm.farmer.accessories.overalls < 3 &&
+          this.farm.dingles >= (this.farm.farmer.accessories.overalls + 1) * 12
+        ) {
+          this.farm.dingles -= (this.farm.farmer.accessories.overalls + 1) * 12;
+          this.farm.farmer.accessories.overalls += 1;
+          await this.farm.farmer.save();
+          await this.farm.save();
+          this.respond(
+            target,
+            `Success! You now own: ${
+              overallLevelMap[this.farm.farmer.accessories.overalls]
+            }.`
+          );
+        }
       } else {
-        this.farm.dingles -= cost;
-        this.farm.materials[material] += quantity;
-        await this.farm.save();
-        this.respond(
-          target,
-          `Nice doing business, ${this.farm.farmer.title} ${username}. You got ${this.farm.dingles} dingles left.`
-        );
+        quantity = parseInt(quantity);
+        let cost = quantity * this.market[material];
+        if (quantity < 0) {
+          this.respond(target, `Invalid quantity: ${quantity}`);
+        } else if (!this.farm.materials.hasOwnProperty(material)) {
+          this.respond(target, `Invalid material: ${material}`);
+        } else if (this.farm.dingles < cost) {
+          this.respond(
+            target,
+            `Stop right there! That'll cost ${cost} dingles, and you've only got ${this.farm.dingles}.`
+          );
+        } else {
+          this.farm.dingles -= cost;
+          this.farm.materials[material] += quantity;
+          await this.farm.save();
+          this.respond(
+            target,
+            `Nice doing business, ${this.farm.farmer.title} ${username}. You got ${this.farm.dingles} dingles left.`
+          );
+        }
       }
     } else {
       this.respond(username, "Sorry, only the farmer can buy stuff.", true);
@@ -313,10 +453,11 @@ class TFController {
     }
   }
 
+  //Mongoose is adding keys to object I'm calling object.keys on and it's fucking things
   processBuildings(target, username) {
     if (username === this.farm.farmer.username) {
       let accomodations = [];
-      Object.keys(this.farm.accomodations).forEach(key => {
+      animalTypes.forEach(key => {
         let recipe = accomodationRecipeMap[key];
         let nextLevel = this.farm.accomodations[key] + 1;
         let upgradeCosts =
