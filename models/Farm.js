@@ -93,7 +93,7 @@ const FarmSchema = new mongoose.Schema({
   dingles: {
     type: Number,
     required: true,
-    default: 0
+    default: -1
   }
 });
 

@@ -56,7 +56,7 @@ class BotsController {
     const command = {
       target,
       args: msg.trim().split(" "),
-      username: "aust1ndodge" //context.username
+      username: context.username
     };
 
     if (command.args[0].charAt(0) === "!" && command.args[0].length > 1) {

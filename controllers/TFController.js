@@ -122,77 +122,99 @@ class TFController {
     this.farm = await Farm.findById(farmId).populate("farmer animals");
   }
 
-  //TODO write command for starting a farm and make it cute
-  //TODO Split up help command into different categories, and explain the game for each,
-  // e.g. !help accomodation -> Accomodations improve your animals quality of life. Build mo...
   runCommand(command) {
     const { target, args, username } = command;
-
-    switch (args[0]) {
-      case "!help":
-        this.processHelp(username);
-        break;
-      case "!namefarm":
-        this.processNameFarm(args.slice(1).join(" "), target, username);
-        break;
-      case "!makerounds":
-        this.processMakerounds(target, username);
-        break;
-      case "!inventory":
-        this.processInventory(target, username);
-        break;
-      case "!livestock":
-        this.processLivestock(target, username);
-        break;
-      case "!market":
-        this.processMarket(target, username);
-        break;
-      case "!blackmarket":
-        this.processBlackMarket(target, username);
-        break;
-      case "!buy":
-        this.processBuy(args.slice(1, 3), target, username);
-        break;
-      case "!sell":
-        this.processSell(args.slice(1, 3), target, username);
-        break;
-      case "!build":
-        this.processBuild(args[1], target, username);
-        break;
-      case "!buildings":
-        this.processBuildings(target, username);
-        break;
-      case "!evolve":
-        this.processEvolve(target, username);
-        break;
-      case "!birth":
-        this.processNewAnimal(args[1], target, username);
-        break;
-      case "!oink":
-        this.processAnimalNoise("pig", username);
-        break;
-      case "!bah":
-        this.processAnimalNoise("sheep", username);
-        break;
-      case "!bok":
-        this.processAnimalNoise("chicken", username);
-        break;
-      case "!moo":
-        this.processAnimalNoise("cow", username);
-        break;
-      case "!bleh":
-        this.processAnimalNoise("goat", username);
-        break;
-      default:
-        console.log(`Command unrecognized: ${args[0]}`);
+    if (this.farm.dingles === -1 && args[0] === "!buildfarm") {
+      this.processBuildFarm(target, username);
+    } else {
+      switch (args[0]) {
+        case "!help":
+          this.processHelp(username);
+          break;
+        case "!namefarm":
+          this.processNameFarm(args.slice(1).join(" "), target, username);
+          break;
+        case "!makerounds":
+          this.processMakerounds(target, username);
+          break;
+        case "!inventory":
+          this.processInventory(target, username);
+          break;
+        case "!livestock":
+          this.processLivestock(target, username);
+          break;
+        case "!market":
+          this.processMarket(target, username);
+          break;
+        case "!blackmarket":
+          this.processBlackMarket(target, username);
+          break;
+        case "!buy":
+          this.processBuy(args.slice(1, 3), target, username);
+          break;
+        case "!sell":
+          this.processSell(args.slice(1, 3), target, username);
+          break;
+        case "!build":
+          this.processBuild(args[1], target, username);
+          break;
+        case "!buildings":
+          this.processBuildings(target, username);
+          break;
+        case "!evolve":
+          this.processEvolve(target, username);
+          break;
+        case "!birth":
+          this.processNewAnimal(args[1], target, username);
+          break;
+        case "!oink":
+          this.processAnimalNoise("pig", username);
+          break;
+        case "!bah":
+          this.processAnimalNoise("sheep", username);
+          break;
+        case "!bok":
+          this.processAnimalNoise("chicken", username);
+          break;
+        case "!moo":
+          this.processAnimalNoise("cow", username);
+          break;
+        case "!bleh":
+          this.processAnimalNoise("goat", username);
+          break;
+        default:
+          console.log(`Command unrecognized: ${args[0]}`);
+      }
     }
   }
 
   processHelp(username) {
     if (username === this.farm.farmer.username) {
       this.respond(
+        target,
+        `Howdy, ${this.farm.farmer.title} ${username}! In order to interact with your Twitch Farm, you can use the following commands: '!namefarm [name]' will rename your farm. '!makerounds' will work the farm for an hour; if your animals are awake they'll produce resources during this time. '!inventory' will display what ya got to work with. !livestock will display how many of each animal you own. '!market' will display current prices for stuff. '!blackmarket' will do the same.. but for other stuff. '!buy [quantity] [market thing]' and '!buy [blackmarket thing]' is how you buy stuff. '!sell [resource]' is how you sell your farm's produce. '!buildings' will display the level of your farm's accomodations. '!build [animal type]' is how you upgrade those accomodations. Easy as pie!`
+      );
+    } else {
+      this.respond(
+        target,
+        `Even if you aren't the farmer, you have a vital role to play around these parts. You can join the farm by typing '!birth [animal]', where [animal] is either pig, sheep, chicken, cow, or goat. Good luck to ya!`
+      );
+    }
+  }
+
+  async processBuildFarm(target, username) {
+    if (username === this.farm.farmer.username) {
+      this.farm.dingles = 5;
+      await this.farm.save();
+      this.respond(
+        target,
+        `Yeehaw! Here's the deed to your new land and the keys to your farm. Whoever made this bot never wrote a tutorial, so you're just gonna have to dive in raw-dog and hope for the best! If you get stuck, typing '!help' is probably a good place to start. In the mean time, here's a few dingles to get you goin. Good luck, ${this.farm.farmer.title} ${username}.`
+      );
+    } else {
+      this.respond(
         username,
-        `Howdy, ${this.farm.farmer.title} ${username}! In order to interact with your Twitch Farm, you can use the following commands: '!namefarm [name]' will rename your farm. '!makerounds' will work the farm for an hour; if your animals are awake they'll produce resources during this time. '!inventory' will display what y'all got to work with. !livestock will display how many of each animal you own.`
+        "Sorry, only the channel owner can build a farm here.",
+        true
       );
     }
   }
@@ -453,7 +475,6 @@ class TFController {
     }
   }
 
-  //Mongoose is adding keys to object I'm calling object.keys on and it's fucking things
   processBuildings(target, username) {
     if (username === this.farm.farmer.username) {
       let accomodations = [];
